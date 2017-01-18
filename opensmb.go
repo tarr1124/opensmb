@@ -23,7 +23,7 @@ func main() {
 	windowsPath := os.Args[1]
 
 	if !isWindowsSmbPath(windowsPath) { 
-		fmt.Println("pathがwindowsのものじゃないです")
+		fmt.Println("This target path is not for Windows.")
 		os.Exit(1)
 	}	
 
@@ -36,28 +36,25 @@ func main() {
 	mountedHashedDirName := genDirName(mountTargetStr)
 	mountedDirPath := workingDirPath + mountedHashedDirName
 	if isExist(mountedDirPath) {
-		fmt.Println("対象のDirがすでにマウント済みです。")
+		fmt.Println("This target path has been mounted.")
 	} else {
-		fmt.Println("マウントします")
+		fmt.Println("New mount.")
 		prepareWorkingDir(mountedDirPath)
 		mountNewVol(mountTargetStr, mountedDirPath)
 	}
 
-	fmt.Println(mountedDirPath + "/" + targetFile)
-	out, err := exec.Command("open", mountedDirPath + "/" + targetFile).Output()
+	fmt.Println("open " + mountedDirPath + "/" + targetFile)
+	err := exec.Command("open", mountedDirPath + "/" + targetFile).Run()
     if err != nil {
             panic(err)
     }
-	fmt.Println(out)
 }
 
 func mountNewVol(mountTargetStr string, mountedDirPath string) {
-	fmt.Println(mountTargetStr + "         " + mountedDirPath)
-	out, err := exec.Command("mount_smbfs", mountTargetStr, mountedDirPath).Output()
+	err := exec.Command("mount_smbfs", mountTargetStr, mountedDirPath).Run()
     if err != nil {
             panic(err)
     }
-	fmt.Println(out)
 }
 
 func isWindowsSmbPath(pathString string) (b bool) {
@@ -97,7 +94,6 @@ func prepareWorkingDir(dirPath string) {
 func genDirName(dirNameKey string) (string) {
 	data := []byte(dirNameKey)
 	b := sha1.Sum(data)
-	fmt.Println(hex.EncodeToString(b[:]))
 	return hex.EncodeToString(b[:])
 }
 
