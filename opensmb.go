@@ -3,21 +3,23 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 	"net/url"
+	"path"
+	"syscall"
+	"crypto/sha1"
+	"encoding/hex"
 )
 
 func main() {
-	fmt.Println(os.Args)
 
 	if len(os.Args) != 2 {
 		fmt.Println("Input windows file path as args")
 		os.Exit(1)
 	}
 
-	fmt.Printf("実行ファイル名: %s\n", os.Args[0])
-	fmt.Printf("引数1: %s\n", os.Args[1])
 	windowsPath := os.Args[1]
 
 	if !isWindowsSmbPath(windowsPath) { 
@@ -26,9 +28,36 @@ func main() {
 	}	
 
 	macPath := genMacPathFromWindowsPath(windowsPath) 
-	mountTargetStr := genSvrAndPathStr(macPath)
-	
-	fmt.Println(mountTargetStr)
+	mountTargetStrWithPlus, targetFile := genSvrAndPathStr(macPath)
+	mountTargetStr := strings.Replace(mountTargetStrWithPlus, "+", "%20", -1)
+
+	workingDirPath := "/Volumes/"
+
+	mountedHashedDirName := genDirName(mountTargetStr)
+	mountedDirPath := workingDirPath + mountedHashedDirName
+	if isExist(mountedDirPath) {
+		fmt.Println("対象のDirがすでにマウント済みです。")
+	} else {
+		fmt.Println("マウントします")
+		prepareWorkingDir(mountedDirPath)
+		mountNewVol(mountTargetStr, mountedDirPath)
+	}
+
+	fmt.Println(mountedDirPath + "/" + targetFile)
+	out, err := exec.Command("open", mountedDirPath + "/" + targetFile).Output()
+    if err != nil {
+            panic(err)
+    }
+	fmt.Println(out)
+}
+
+func mountNewVol(mountTargetStr string, mountedDirPath string) {
+	fmt.Println(mountTargetStr + "         " + mountedDirPath)
+	out, err := exec.Command("mount_smbfs", mountTargetStr, mountedDirPath).Output()
+    if err != nil {
+            panic(err)
+    }
+	fmt.Println(out)
 }
 
 func isWindowsSmbPath(pathString string) (b bool) {
@@ -43,7 +72,7 @@ func genMacPathFromWindowsPath(windowsPath string) (macPath string) {
 	return macPath
 }
 
-func genSvrAndPathStr(macPath string) (string){
+func genSvrAndPathStr(macPath string) (string, string){
     re, err := regexp.Compile("//(.*?)/")
     if err != nil {
             panic(err)
@@ -52,8 +81,27 @@ func genSvrAndPathStr(macPath string) (string){
     svr_index := re.FindStringIndex(macPath)
     mountSvrStr := macPath[svr_index[0]:svr_index[1]]
 	mountPathStr := macPath[svr_index[1]:]
-	escapedMountPathStr := url.QueryEscape(mountPathStr)
-	mountTargetStr := mountSvrStr + escapedMountPathStr
+	mountDir, targetFile := path.Split(mountPathStr)
+	escapedMountPathStr := url.QueryEscape(mountDir)
+	mountTargetStr := "smb:" + mountSvrStr + escapedMountPathStr
 
-	return mountTargetStr
+	return mountTargetStr, targetFile
+}
+
+func prepareWorkingDir(dirPath string) {
+    defaultUmask := syscall.Umask(0)
+    os.Mkdir(dirPath, 0777)
+    syscall.Umask(defaultUmask)
+}
+
+func genDirName(dirNameKey string) (string) {
+	data := []byte(dirNameKey)
+	b := sha1.Sum(data)
+	fmt.Println(hex.EncodeToString(b[:]))
+	return hex.EncodeToString(b[:])
+}
+
+func isExist(filename string) bool {
+    _, err := os.Stat(filename)
+    return err == nil
 }
