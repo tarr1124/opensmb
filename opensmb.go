@@ -35,11 +35,15 @@ func main() {
 
 	mountedHashedDirName := genDirName(mountTargetStr)
 	mountedDirPath := workingDirPath + mountedHashedDirName
-	if isExist(mountedDirPath) {
+
+	if !isExist(mountedDirPath) {
+		prepareWorkingDir(mountedDirPath)
+	}
+
+	if isMounted(mountedDirPath) {
 		fmt.Println("This target path has been mounted.")
 	} else {
 		fmt.Println("New mount.")
-		prepareWorkingDir(mountedDirPath)
 		mountNewVol(mountTargetStr, mountedDirPath)
 	}
 
@@ -99,5 +103,11 @@ func genDirName(dirNameKey string) (string) {
 
 func isExist(filename string) bool {
     _, err := os.Stat(filename)
+    return err == nil
+}
+
+func isMounted(dirPath string) bool {
+    mountCheckStr := "mount | grep " + strings.TrimRight(dirPath, "/")
+    _, err := exec.Command("sh", "-c", mountCheckStr).Output()
     return err == nil
 }
