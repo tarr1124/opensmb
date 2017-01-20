@@ -47,8 +47,14 @@ func main() {
 		mountNewVol(mountTargetStr, mountedDirPath)
 	}
 
-	fmt.Println("open " + mountedDirPath + "/" + targetFile)
-	err := exec.Command("open", mountedDirPath + "/" + targetFile).Run()
+	openTargetFile := mountedDirPath + "/" + targetFile
+	if !isExist(openTargetFile) {
+		fmt.Println("There is no target file.")
+		os.Exit(1)
+	}
+
+	fmt.Println("open " + openTargetFile)
+	err := exec.Command("open", openTargetFile).Run()
     if err != nil {
             panic(err)
     }
